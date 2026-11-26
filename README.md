@@ -63,6 +63,12 @@ Copy [`.env.example`](.env.example). Important variables:
 2. Point Alloy at the exporter — see [`deploy/alloy/scrape-fireboard.alloy.example`](deploy/alloy/scrape-fireboard.alloy.example).
 3. Import [`grafana/dashboards/fireboard-overview.json`](grafana/dashboards/fireboard-overview.json).
 
+Dashboard notes:
+
+- **All active probes** appear on Channel temperatures (FireBoard only reports readings newer than ~60s).
+- Name your pit probe `Pit`, `Chamber`, `Grill`, or `Air` so the chamber average / pit panels match (or edit the dashboard `chamber_regex` variable).
+- **Meat time-at-temp histogram** and **heatmap** exclude chamber-labeled probes — a pile/band around 150–170°F is the stall.
+
 ### Influx-only
 
 ```bash

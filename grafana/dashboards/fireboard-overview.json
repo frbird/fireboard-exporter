@@ -1,5 +1,6 @@
 {
   "annotations": { "list": [] },
+  "description": "FireBoard live probes, chamber average, and meat time-at-temp (stall) views. Label your pit probe Pit/Chamber/Grill/Air so chamber panels match. Every probe with a live reading (<60s) appears on Channel temperatures.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -8,37 +9,153 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "One series per active probe (FireBoard only reports channels with a reading newer than ~60s).",
       "fieldConfig": {
         "defaults": {
-          "unit": "celsius"
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" },
+          "unit": "fahrenheit"
         },
         "overrides": []
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 10, "w": 18, "x": 0, "y": 0 },
       "id": 1,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "min", "max"] } },
       "targets": [
         {
-          "expr": "fireboard_channel_temperature_celsius",
-          "legendFormat": "{{device_title}} / {{channel_label}}",
+          "expr": "fireboard_channel_temperature_celsius * 9/5 + 32",
+          "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
-      "title": "Channel temperatures (°C)",
+      "title": "Channel temperatures (°F) — all active probes",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Average chamber/pit temperature over the dashboard time range. Matches channel_label against $chamber_regex (default: pit|chamber|grill|air|cooker|ambient).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "avg_over_time((fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"} * 9/5 + 32)[$__range:])",
+          "legendFormat": "avg chamber",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg chamber (°F) — selected range",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Chamber/pit probe temperature over time (same $chamber_regex filter).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "fahrenheit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"} * 9/5 + 32",
+          "legendFormat": "{{channel_label}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Chamber / pit (°F)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "How long meat probes spent in each temperature band over the selected range. A wide pile around 150–170°F is the stall. Excludes chamber-labeled probes.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "custom": {
+            "gradientMode": "scheme"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 10 },
+      "id": 6,
+      "options": {
+        "bucketCount": 40,
+        "bucketOffset": 0,
+        "bucketSize": 0
+      },
+      "targets": [
+        {
+          "expr": "fireboard_channel_temperature_celsius{channel_label!~\"$chamber_regex\"} * 9/5 + 32",
+          "legendFormat": "{{channel_label}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Meat time-at-temp histogram (°F)",
+      "type": "histogram"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Heatmap of meat probe temperature over time. A flat horizontal band in the 150–170°F range is the classic stall signature.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "scaleDistribution": { "type": "linear" }
+          },
+          "unit": "fahrenheit"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 10 },
+      "id": 7,
+      "options": {
+        "calculate": true,
+        "calculation": { "xBuckets": { "mode": "count", "value": "60" }, "yBuckets": { "mode": "count", "value": "40" } },
+        "cellGap": 1,
+        "color": { "scheme": "Spectral", "steps": 64, "mode": "scheme", "fill": "dark-orange" },
+        "legend": { "show": true },
+        "tooltip": { "mode": "single", "yHistogram": true },
+        "yAxis": { "unit": "fahrenheit", "decimals": 0 }
+      },
+      "targets": [
+        {
+          "expr": "fireboard_channel_temperature_celsius{channel_label!~\"$chamber_regex\"} * 9/5 + 32",
+          "legendFormat": "{{channel_label}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Meat temp heatmap (stall view)",
+      "type": "heatmap"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "options": { "0": { "text": "down" }, "1": { "text": "up" } }, "type": "value" }
+            { "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } }, "type": "value" }
           ]
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 10 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 19 },
       "id": 2,
-      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [
         {
           "expr": "fireboard_up",
@@ -50,7 +167,13 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 18, "x": 6, "y": 19 },
       "id": 3,
       "targets": [
         {
@@ -64,7 +187,7 @@
     }
   ],
   "schemaVersion": 39,
-  "tags": ["fireboard", "bbq"],
+  "tags": ["fireboard", "bbq", "stall"],
   "templating": {
     "list": [
       {
@@ -72,11 +195,24 @@
         "name": "datasource",
         "query": "prometheus",
         "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "(?i)pit|chamber|grill|air|cooker|ambient",
+          "value": "(?i)pit|chamber|grill|air|cooker|ambient"
+        },
+        "description": "Regex matched against channel_label for chamber/pit panels. Meat histogram/heatmap use the inverse.",
+        "label": "Chamber label regex",
+        "name": "chamber_regex",
+        "query": "(?i)pit|chamber|grill|air|cooker|ambient",
+        "skipUrlSync": false,
+        "type": "textbox"
       }
     ]
   },
   "time": { "from": "now-6h", "to": "now" },
   "title": "Fireboard Overview",
   "uid": "fireboard-overview",
-  "version": 1
+  "version": 2
 }
