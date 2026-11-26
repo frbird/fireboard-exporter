@@ -76,6 +76,15 @@ async def test_grafana_clears_stale_channels(grafana_env: None) -> None:
     assert 'channel_label="Brisket"' not in payload
 
 
+def test_registry_samples_include_api_counter(grafana_env: None) -> None:
+    sink = GrafanaSink(get_settings(), registry=CollectorRegistry())
+    sink.record_api_request("devices", "ok")
+    sink.up.set(1)
+    names = {sample.name for sample in sink.registry_samples(timestamp_ms=1)}
+    assert "fireboard_api_requests_total" in names
+    assert "fireboard_up" in names
+
+
 @pytest.mark.asyncio
 async def test_influx_write_points(influx_env: None) -> None:
     settings = get_settings()

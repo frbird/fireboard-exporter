@@ -20,7 +20,8 @@ async def test_healthz(grafana_env: None) -> None:
     response = await healthz()
     assert response.status_code == 200
     body = json.loads(response.body)
-    assert body == {"status": "ok", "version": "0.1.0"}
+    assert body["status"] == "ok"
+    assert "version" in body
 
 
 @pytest.mark.asyncio

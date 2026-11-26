@@ -74,9 +74,14 @@ class GrafanaSink:
 
     async def write(self, result: PollResult) -> None:
         self.up.set(1 if result.success else 0)
-        if not result.success:
-            return
+        if result.success:
+            self._apply_success_gauges(result)
 
+        # Always remote_write when configured so counters/up ship even with no session.
+        if self._settings.grafana_remote_write_configured:
+            await self._remote_write()
+
+    def _apply_success_gauges(self, result: PollResult) -> None:
         seen_channels: set[tuple[str, str, str, str]] = set()
         for reading in result.channels:
             key = (
@@ -114,57 +119,27 @@ class GrafanaSink:
             self.session_info.remove(*stale)
         self._session_keys = seen_sessions
 
-        if self._settings.grafana_remote_write_configured:
-            await self._remote_write(result)
+    def registry_samples(self, timestamp_ms: int | None = None) -> list[RemoteSample]:
+        """Snapshot all registry samples for remote_write (gauges, counters, histograms)."""
+        now_ms = timestamp_ms or int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+        samples: list[RemoteSample] = []
+        for metric in self.registry.collect():
+            for sample in metric.samples:
+                # Skip Prometheus client internal created-timestamp series.
+                if sample.name.endswith("_created"):
+                    continue
+                samples.append(
+                    RemoteSample(
+                        name=sample.name,
+                        labels=dict(sample.labels),
+                        value=float(sample.value),
+                        timestamp_ms=now_ms,
+                    )
+                )
+        return samples
 
-    async def _remote_write(self, result: PollResult) -> None:
-        now_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-        samples: list[RemoteSample] = [
-            RemoteSample(
-                name="fireboard_up",
-                labels={},
-                value=1.0 if result.success else 0.0,
-                timestamp_ms=now_ms,
-            )
-        ]
-        for reading in result.channels:
-            samples.append(
-                RemoteSample(
-                    name="fireboard_channel_temperature_celsius",
-                    labels={
-                        "device_uuid": reading.device_uuid,
-                        "device_title": reading.device_title,
-                        "channel": str(reading.channel),
-                        "channel_label": reading.channel_label,
-                    },
-                    value=reading.temp_c,
-                    timestamp_ms=now_ms,
-                )
-            )
-        for device in result.devices:
-            samples.append(
-                RemoteSample(
-                    name="fireboard_device_last_templog_timestamp_seconds",
-                    labels={
-                        "device_uuid": device.device_uuid,
-                        "device_title": device.device_title,
-                    },
-                    value=device.last_templog.timestamp() if device.last_templog else 0.0,
-                    timestamp_ms=now_ms,
-                )
-            )
-        for session in result.sessions:
-            samples.append(
-                RemoteSample(
-                    name="fireboard_session_info",
-                    labels={
-                        "session_id": session.session_id,
-                        "session_title": session.session_title,
-                    },
-                    value=1.0,
-                    timestamp_ms=now_ms,
-                )
-            )
+    async def _remote_write(self) -> None:
+        samples = self.registry_samples()
         try:
             await push_remote_write(
                 url=self._settings.grafana_remote_write_url or "",
