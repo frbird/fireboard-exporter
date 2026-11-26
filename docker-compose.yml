@@ -1,0 +1,17 @@
+services:
+  fireboard-exporter:
+    build: .
+    image: fireboard-exporter:0.1.0
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8080"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      # Example: SINKS=grafana | influx | grafana,influx
+      SINKS: "${SINKS:-grafana}"
+      POLL_INTERVAL_SECONDS: "${POLL_INTERVAL_SECONDS:-60}"
+      SESSION_POLL_INTERVAL_SECONDS: "${SESSION_POLL_INTERVAL_SECONDS:-300}"
+    restart: unless-stopped

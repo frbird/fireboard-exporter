@@ -1,0 +1,25 @@
+// Example Grafana Alloy scrape job for the Fireboard exporter.
+// Merge into your existing Alloy config; keep your Grafana Cloud remote_write block.
+
+prometheus.scrape "fireboard" {
+  targets = [
+    {"__address__" = "fireboard-exporter.fireboard.svc.cluster.local:8080"},
+  ]
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  metrics_path    = "/metrics"
+  scrape_interval = "60s"
+  scrape_timeout  = "10s"
+  job_name        = "fireboard-exporter"
+}
+
+// Existing remote_write block (illustrative — use your real credentials via env/secret):
+//
+// prometheus.remote_write "grafana_cloud" {
+//   endpoint {
+//     url = sys.env("GCLOUD_HOSTED_METRICS_URL")
+//     basic_auth {
+//       username = sys.env("GCLOUD_HOSTED_METRICS_ID")
+//       password = sys.env("GCLOUD_RW_API_KEY")
+//     }
+//   }
+// }

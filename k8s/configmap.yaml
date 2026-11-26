@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fireboard-exporter
+  namespace: fireboard
+  labels:
+    app.kubernetes.io/name: fireboard-exporter
+data:
+  SINKS: "grafana"
+  POLL_INTERVAL_SECONDS: "60"
+  SESSION_POLL_INTERVAL_SECONDS: "300"
+  LOG_LEVEL: "INFO"
+  HOST: "0.0.0.0"
+  PORT: "8080"
+  APP_VERSION: "0.1.0"
+  FIREBOARD_USER_AGENT: "FireboardExporter/0.1.0"
