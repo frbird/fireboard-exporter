@@ -76,6 +76,24 @@ async def test_grafana_clears_stale_channels(grafana_env: None) -> None:
     assert 'channel_label="Brisket"' not in payload
 
 
+@pytest.mark.asyncio
+async def test_grafana_omits_temps_without_active_session(grafana_env: None) -> None:
+    sink = GrafanaSink(get_settings(), registry=CollectorRegistry())
+    await sink.write(_sample_result())
+    assert 'channel_label="Brisket"' in sink.metrics_payload().decode()
+
+    no_session = PollResult(
+        success=True,
+        channels=_sample_result().channels,
+        devices=_sample_result().devices,
+        sessions=[],
+    )
+    await sink.write(no_session)
+    payload = sink.metrics_payload().decode()
+    assert 'channel_label="Brisket"' not in payload
+    assert "fireboard_up 1.0" in payload or "fireboard_up 1" in payload
+
+
 def test_registry_samples_include_api_counter(grafana_env: None) -> None:
     sink = GrafanaSink(get_settings(), registry=CollectorRegistry())
     sink.record_api_request("devices", "ok")

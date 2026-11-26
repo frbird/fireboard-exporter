@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: fireboard-exporter
-          image: ghcr.io/frbird/fireboard-exporter:0.1.1
+          image: ghcr.io/frbird/fireboard-exporter:0.1.2
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

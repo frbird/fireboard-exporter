@@ -12,7 +12,7 @@ from fireboard_exporter.fireboard_client import (
     FireboardClient,
     FireboardRateLimitError,
 )
-from fireboard_exporter.models import PollResult
+from fireboard_exporter.models import PollResult, SessionInfo
 from fireboard_exporter.sinks.base import Sink
 from fireboard_exporter.sinks.grafana import GrafanaSink
 
@@ -33,6 +33,7 @@ class Poller:
         self._sinks = sinks
         self._stop = asyncio.Event()
         self._last_result: PollResult | None = None
+        self._active_sessions: list[SessionInfo] = []
         self._next_session_poll = 0.0
         self._backoff_seconds = 0
 
@@ -51,13 +52,12 @@ class Poller:
         )
         while not self._stop.is_set():
             started = time.perf_counter()
-            include_sessions = time.monotonic() >= self._next_session_poll
+            # Refresh sessions every cycle so temp export stays gated on open cooks.
+            include_sessions = True
             try:
                 result = await self._client.poll(include_sessions=include_sessions)
-                if include_sessions and result.success:
-                    self._next_session_poll = (
-                        time.monotonic() + self._settings.session_poll_interval_seconds
-                    )
+                if result.success:
+                    self._active_sessions = list(result.sessions)
                 self._backoff_seconds = 0
             except FireboardRateLimitError:
                 self._backoff_seconds = max(self._backoff_seconds * 2, 300)
@@ -70,6 +70,10 @@ class Poller:
                 logger.exception("poll_cycle_failed", error=str(exc))
                 result = PollResult(success=False, error=str(exc))
 
+            if result.success:
+                # Ensure sinks always see the latest open-session set.
+                result.sessions = list(self._active_sessions)
+
             duration = time.perf_counter() - started
             self._last_result = result
             for sink in self._sinks:
@@ -79,6 +83,11 @@ class Poller:
                         "devices",
                         "ok" if result.success else "error",
                     )
+                    if include_sessions:
+                        sink.record_api_request(
+                            "sessions",
+                            "ok" if result.success else "error",
+                        )
                 try:
                     await sink.write(result)
                 except Exception as exc:  # noqa: BLE001

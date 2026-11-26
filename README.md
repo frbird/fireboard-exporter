@@ -65,9 +65,9 @@ Copy [`.env.example`](.env.example). Important variables:
 
 Dashboard notes:
 
-- **All active probes** appear on Channel temperatures (FireBoard only reports readings newer than ~60s).
-- Name your pit probe `Pit`, `Chamber`, `Grill`, or `Air` so the chamber average / pit panels match (or edit the dashboard `chamber_regex` variable).
-- **Meat time-at-temp histogram** and **heatmap** exclude chamber-labeled probes — a pile/band around 150–170°F is the stall.
+- **Temperatures are session-scoped:** the exporter only writes probe temps while a FireBoard cook session is open. No session → no temp series (health/API metrics still flow).
+- Name your pit probe `Pit`, `Chamber`, `Grill`, or `Air` so chamber panels match (or edit `chamber_regex`).
+- **Meat time-at-temp histogram** / **heatmap** exclude chamber-labeled probes — stall ≈ 150–170°F.
 
 ### Influx-only
 

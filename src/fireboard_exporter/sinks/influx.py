@@ -37,19 +37,22 @@ class InfluxSink:
 
         now = datetime.now(tz=timezone.utc)
         points: list[Point] = []
-        for reading in result.channels:
-            ts = reading.observed_at or now
-            point = (
-                Point("fireboard_temperature")
-                .tag("device_uuid", reading.device_uuid)
-                .tag("device_title", reading.device_title)
-                .tag("channel", str(reading.channel))
-                .tag("channel_label", reading.channel_label)
-                .field("temp_c", reading.temp_c)
-                .field("temp_f", reading.temp_f)
-                .time(ts)
-            )
-            points.append(point)
+        # Probe temps are session-scoped — skip when no open cook session.
+        if result.sessions:
+            for reading in result.channels:
+                ts = reading.observed_at or now
+                point = (
+                    Point("fireboard_temperature")
+                    .tag("device_uuid", reading.device_uuid)
+                    .tag("device_title", reading.device_title)
+                    .tag("channel", str(reading.channel))
+                    .tag("channel_label", reading.channel_label)
+                    .field("temp_c", reading.temp_c)
+                    .field("temp_f", reading.temp_f)
+                    .time(ts)
+                )
+                points.append(point)
+
 
         for device in result.devices:
             if device.last_templog is None:

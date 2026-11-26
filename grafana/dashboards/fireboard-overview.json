@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "FireBoard live probes, chamber average, and meat time-at-temp (stall) views. Probe temps come from the device API (not sessions)—a labeled probe can appear without an active cook session. Live panels use a 2m freshness window; histogram/heatmap/avg use the full dashboard range (historical).",
+  "description": "Probe temperatures are only exported while a FireBoard cook session is open. With no active session, temperature panels stay empty (exporter health/API still shown).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -9,7 +9,7 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Live probes only (samples in the last 2m). FireBoard can report probe temps without an active cloud session. last_over_time drops probes that stopped reporting so the legend does not stick on stale values.",
+      "description": "One series per probe during an active cook session. No open session → exporter does not write temps, so this panel is empty.",
       "fieldConfig": {
         "defaults": {
           "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": false },
@@ -22,17 +22,17 @@
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "min", "max"] } },
       "targets": [
         {
-          "expr": "last_over_time((fireboard_channel_temperature_celsius * 9/5 + 32)[2m])",
+          "expr": "last_over_time(fireboard_channel_temperature_celsius[2m]) * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
-      "title": "Channel temperatures (°F) — live probes only",
+      "title": "Channel temperatures (°F) — active session probes",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Average chamber/pit temperature over the dashboard time range. Matches channel_label against $chamber_regex (default: pit|chamber|grill|air|cooker|ambient).",
+      "description": "Average chamber/pit temperature over the dashboard time range (only samples written during open sessions). Matches channel_label against $chamber_regex.",
       "fieldConfig": {
         "defaults": {
           "unit": "fahrenheit",
@@ -60,10 +60,10 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Chamber/pit probe temperature over time (same $chamber_regex filter).",
+      "description": "Chamber/pit probe during an active session ($chamber_regex).",
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 15 },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 15, "spanNulls": false },
           "unit": "fahrenheit"
         },
         "overrides": []
@@ -73,17 +73,17 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "lastNotNull"] } },
       "targets": [
         {
-          "expr": "last_over_time((fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"} * 9/5 + 32)[2m])",
+          "expr": "last_over_time(fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"}[2m]) * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
-      "title": "Chamber / pit (°F) — live",
+      "title": "Chamber / pit (°F)",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "How long meat probes spent in each temperature band over the selected range. A wide pile around 150–170°F is the stall. Excludes chamber-labeled probes.",
+      "description": "How long meat probes spent in each temperature band over the selected range (session-only samples). Stall ≈ 150–170°F.",
       "fieldConfig": {
         "defaults": {
           "unit": "fahrenheit",
@@ -112,7 +112,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Heatmap of meat probe temperature over time. A flat horizontal band in the 150–170°F range is the classic stall signature.",
+      "description": "Meat probe heatmap over time (session-only samples). A flat band at 150–170°F is the stall.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -145,6 +145,32 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Open FireBoard cook sessions currently known to the exporter.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "text": "none", "color": "text" }, "1": { "text": "active", "color": "green" } }, "type": "value" }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 19 },
+      "id": 8,
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "max(fireboard_session_info) or vector(0)",
+          "legendFormat": "session",
+          "refId": "A"
+        }
+      ],
+      "title": "Active cook session",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -153,7 +179,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 19 },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 19 },
       "id": 2,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [
@@ -173,7 +199,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 18, "x": 6, "y": 19 },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 19 },
       "id": 3,
       "targets": [
         {
@@ -214,5 +240,5 @@
   "time": { "from": "now-6h", "to": "now" },
   "title": "Fireboard Overview",
   "uid": "fireboard-overview",
-  "version": 3
+  "version": 4
 }

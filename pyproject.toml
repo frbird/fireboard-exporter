@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fireboard-exporter"
-version = "0.1.1"
+version = "0.1.2"
 description = "FireBoard2 temperature exporter for Grafana Cloud and/or InfluxDB"
 readme = "README.md"
 requires-python = ">=3.12"

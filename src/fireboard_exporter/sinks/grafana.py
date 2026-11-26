@@ -82,21 +82,27 @@ class GrafanaSink:
             await self._remote_write()
 
     def _apply_success_gauges(self, result: PollResult) -> None:
-        seen_channels: set[tuple[str, str, str, str]] = set()
-        for reading in result.channels:
-            key = (
-                reading.device_uuid,
-                reading.device_title,
-                str(reading.channel),
-                reading.channel_label,
-            )
-            seen_channels.add(key)
-            self.channel_temp.labels(*key).set(reading.temp_c)
-            self._channel_temps[key] = reading.temp_c
+        # Temperature series are session-scoped: no open cook session → no probe temps.
+        if result.sessions:
+            seen_channels: set[tuple[str, str, str, str]] = set()
+            for reading in result.channels:
+                key = (
+                    reading.device_uuid,
+                    reading.device_title,
+                    str(reading.channel),
+                    reading.channel_label,
+                )
+                seen_channels.add(key)
+                self.channel_temp.labels(*key).set(reading.temp_c)
+                self._channel_temps[key] = reading.temp_c
 
-        for stale in set(self._channel_temps) - seen_channels:
-            self.channel_temp.remove(*stale)
-            del self._channel_temps[stale]
+            for stale in set(self._channel_temps) - seen_channels:
+                self.channel_temp.remove(*stale)
+                del self._channel_temps[stale]
+        else:
+            for stale in list(self._channel_temps):
+                self.channel_temp.remove(*stale)
+                del self._channel_temps[stale]
 
         seen_devices: set[tuple[str, str]] = set()
         for device in result.devices:
