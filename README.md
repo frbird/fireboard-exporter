@@ -42,7 +42,7 @@ docker compose up --build
 
 ### Kubernetes
 
-See [`k8s/README.md`](k8s/README.md). Image tag in manifests: `ghcr.io/frbird/fireboard-exporter:0.1.0`.
+See [`k8s/README.md`](k8s/README.md). Image tag in manifests: `ghcr.io/frbird/fireboard-exporter:0.1.3`.
 
 ## Configuration
 
@@ -89,7 +89,8 @@ from(bucket: "fireboard")
 
 ## Metrics
 
-- `fireboard_channel_temperature_celsius{device_uuid,device_title,channel,channel_label}`
+- `fireboard_channel_temperature_celsius{device_uuid,channel}` — stable probe identity (renames do not fork the series)
+- `fireboard_channel_info{device_uuid,device_title,channel,channel_label}` — current display name (`1` = present); join in PromQL for legends
 - `fireboard_device_last_templog_timestamp_seconds{device_uuid,device_title}`
 - `fireboard_session_info{session_id,session_title}`
 - `fireboard_up`
@@ -97,6 +98,16 @@ from(bucket: "fireboard")
 - `fireboard_poll_duration_seconds`
 
 Temperatures are normalized to Celsius (FireBoard `degreetype` 1=C, 2=F).
+
+Example join for labeled °F:
+
+```promql
+(
+  max by (device_uuid, channel) (last_over_time(fireboard_channel_temperature_celsius[2m]))
+  * on (device_uuid, channel) group_left (channel_label)
+    max by (device_uuid, channel, channel_label) (fireboard_channel_info)
+) * 9/5 + 32
+```
 
 ## Development
 
@@ -107,5 +118,6 @@ pytest -q
 
 ## Deferred
 
-- Keg Monitor dashboard widget (can use `GET /api/latest` so only this process hits FireBoard)
 - Cook-time ML / prediction on stored history
+
+Keg Monitor reads live temps from `GET /api/latest` on the cluster network. The address is set in Keg Monitor, and each open session includes `started_at`. This service stays ClusterIP — do not publish it to the internet.

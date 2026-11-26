@@ -41,12 +41,14 @@ class InfluxSink:
         if result.sessions:
             for reading in result.channels:
                 ts = reading.observed_at or now
+                # Tags are series identity — keep only stable probe slot fields.
+                # Mutable display names go in fields so renames do not fork series.
                 point = (
                     Point("fireboard_temperature")
                     .tag("device_uuid", reading.device_uuid)
-                    .tag("device_title", reading.device_title)
                     .tag("channel", str(reading.channel))
-                    .tag("channel_label", reading.channel_label)
+                    .field("device_title", reading.device_title)
+                    .field("channel_label", reading.channel_label)
                     .field("temp_c", reading.temp_c)
                     .field("temp_f", reading.temp_f)
                     .time(ts)

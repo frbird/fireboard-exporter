@@ -13,6 +13,10 @@ from fireboard_exporter.sinks.remote_write import RemoteSample, push_remote_writ
 
 logger = structlog.get_logger(__name__)
 
+# Stable probe identity — mutable display names live on fireboard_channel_info.
+_ChannelKey = tuple[str, str]  # (device_uuid, channel)
+_InfoKey = tuple[str, str, str, str]  # (device_uuid, device_title, channel, channel_label)
+
 
 class GrafanaSink:
     """Expose FireBoard readings as Prometheus metrics; optionally remote_write."""
@@ -22,13 +26,20 @@ class GrafanaSink:
     def __init__(self, settings: Settings, registry: CollectorRegistry | None = None) -> None:
         self._settings = settings
         self.registry = registry or CollectorRegistry()
-        self._channel_temps: dict[tuple[str, str, str, str], float] = {}
+        self._channel_temps: dict[_ChannelKey, float] = {}
+        self._channel_info_keys: set[_InfoKey] = set()
         self._device_last: dict[tuple[str, str], float] = {}
         self._session_keys: set[tuple[str, str]] = set()
 
         self.channel_temp = Gauge(
             "fireboard_channel_temperature_celsius",
             "Latest FireBoard channel temperature in Celsius",
+            ["device_uuid", "channel"],
+            registry=self.registry,
+        )
+        self.channel_info = Gauge(
+            "fireboard_channel_info",
+            "Current FireBoard channel display metadata (1 = present)",
             ["device_uuid", "device_title", "channel", "channel_label"],
             registry=self.registry,
         )
@@ -81,28 +92,42 @@ class GrafanaSink:
         if self._settings.grafana_remote_write_configured:
             await self._remote_write()
 
+    def _clear_channel_gauges(self) -> None:
+        for stale in list(self._channel_temps):
+            self.channel_temp.remove(*stale)
+            del self._channel_temps[stale]
+        for stale in list(self._channel_info_keys):
+            self.channel_info.remove(*stale)
+        self._channel_info_keys.clear()
+
     def _apply_success_gauges(self, result: PollResult) -> None:
         # Temperature series are session-scoped: no open cook session → no probe temps.
         if result.sessions:
-            seen_channels: set[tuple[str, str, str, str]] = set()
+            seen_channels: set[_ChannelKey] = set()
+            seen_info: set[_InfoKey] = set()
             for reading in result.channels:
-                key = (
+                channel = str(reading.channel)
+                key: _ChannelKey = (reading.device_uuid, channel)
+                info_key: _InfoKey = (
                     reading.device_uuid,
                     reading.device_title,
-                    str(reading.channel),
+                    channel,
                     reading.channel_label,
                 )
                 seen_channels.add(key)
+                seen_info.add(info_key)
                 self.channel_temp.labels(*key).set(reading.temp_c)
                 self._channel_temps[key] = reading.temp_c
+                self.channel_info.labels(*info_key).set(1)
 
             for stale in set(self._channel_temps) - seen_channels:
                 self.channel_temp.remove(*stale)
                 del self._channel_temps[stale]
+            for stale in self._channel_info_keys - seen_info:
+                self.channel_info.remove(*stale)
+            self._channel_info_keys = seen_info
         else:
-            for stale in list(self._channel_temps):
-                self.channel_temp.remove(*stale)
-                del self._channel_temps[stale]
+            self._clear_channel_gauges()
 
         seen_devices: set[tuple[str, str]] = set()
         for device in result.devices:

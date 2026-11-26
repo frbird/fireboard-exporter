@@ -16,7 +16,7 @@ from fireboard_exporter.sinks.influx import InfluxSink
 from fireboard_exporter.sinks.remote_write import encode_write_request, RemoteSample
 
 
-def _sample_result() -> PollResult:
+def _sample_result(*, channel_label: str = "Brisket") -> PollResult:
     return PollResult(
         success=True,
         channels=[
@@ -24,7 +24,7 @@ def _sample_result() -> PollResult:
                 device_uuid="device-1",
                 device_title="Backyard FB2",
                 channel=1,
-                channel_label="Brisket",
+                channel_label=channel_label,
                 temp_c=90.56,
                 temp_f=195.0,
                 observed_at=datetime(2026, 3, 20, 18, 0, tzinfo=timezone.utc),
@@ -68,11 +68,14 @@ async def test_grafana_clears_stale_channels(grafana_env: None) -> None:
     await sink.write(_sample_result())
     payload = sink.metrics_payload().decode()
     assert "fireboard_channel_temperature_celsius" in payload
+    assert 'channel="1"' in payload
     assert 'channel_label="Brisket"' in payload
+    assert "fireboard_channel_info" in payload
 
     empty = PollResult(success=True, channels=[], devices=[], sessions=[])
     await sink.write(empty)
     payload = sink.metrics_payload().decode()
+    assert "fireboard_channel_temperature_celsius{" not in payload
     assert 'channel_label="Brisket"' not in payload
 
 
@@ -91,7 +94,31 @@ async def test_grafana_omits_temps_without_active_session(grafana_env: None) -> 
     await sink.write(no_session)
     payload = sink.metrics_payload().decode()
     assert 'channel_label="Brisket"' not in payload
+    assert "fireboard_channel_temperature_celsius{" not in payload
     assert "fireboard_up 1.0" in payload or "fireboard_up 1" in payload
+
+
+@pytest.mark.asyncio
+async def test_grafana_rename_keeps_single_temp_series(grafana_env: None) -> None:
+    """Renaming a probe must not leave a second temperature series under the old label."""
+    sink = GrafanaSink(get_settings(), registry=CollectorRegistry())
+    await sink.write(_sample_result(channel_label="Channel 1"))
+    await sink.write(_sample_result(channel_label="Turkey Breast"))
+
+    payload = sink.metrics_payload().decode()
+    temp_lines = [
+        line
+        for line in payload.splitlines()
+        if line.startswith("fireboard_channel_temperature_celsius{")
+    ]
+    assert len(temp_lines) == 1
+    assert 'device_uuid="device-1"' in temp_lines[0]
+    assert 'channel="1"' in temp_lines[0]
+    assert "channel_label=" not in temp_lines[0]
+
+    assert 'channel_label="Turkey Breast"' in payload
+    assert 'channel_label="Channel 1"' not in payload
+    assert "fireboard_channel_info{" in payload
 
 
 def test_registry_samples_include_api_counter(grafana_env: None) -> None:
