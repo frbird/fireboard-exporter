@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "TV-friendly FireBoard cook dashboard. Probe temps only while a session is open. Giant live numbers are sized for viewing across a room.",
+  "description": "TV-friendly FireBoard cook dashboard. Probe temps only while a session is open. Giant live numbers are sized for viewing across a room. Channel renames join via fireboard_channel_info so legends stay unique.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -42,7 +42,7 @@
       },
       "targets": [
         {
-          "expr": "fireboard_channel_temperature_celsius * 9/5 + 32",
+          "expr": "(\n  max by (device_uuid, channel) (last_over_time(fireboard_channel_temperature_celsius[2m]))\n  * on (device_uuid, channel) group_left (channel_label)\n    max by (device_uuid, channel, channel_label) (fireboard_channel_info)\n) * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
@@ -82,7 +82,7 @@
       },
       "targets": [
         {
-          "expr": "avg_over_time((fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"} * 9/5 + 32)[$__range:])",
+          "expr": "avg_over_time((\n  (\n    max by (device_uuid, channel) (fireboard_channel_temperature_celsius)\n    * on (device_uuid, channel) group_left (channel_label)\n      max by (device_uuid, channel, channel_label) (fireboard_channel_info)\n  ){channel_label=~\"$chamber_regex\"} * 9/5 + 32\n)[$__range:])",
           "legendFormat": "avg chamber",
           "refId": "A"
         }
@@ -151,7 +151,7 @@
       },
       "targets": [
         {
-          "expr": "last_over_time(fireboard_channel_temperature_celsius[2m]) * 9/5 + 32",
+          "expr": "(\n  max by (device_uuid, channel) (last_over_time(fireboard_channel_temperature_celsius[2m]))\n  * on (device_uuid, channel) group_left (channel_label)\n    max by (device_uuid, channel, channel_label) (fireboard_channel_info)\n) * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
@@ -178,7 +178,7 @@
       },
       "targets": [
         {
-          "expr": "fireboard_channel_temperature_celsius{channel_label!~\"$chamber_regex\"} * 9/5 + 32",
+          "expr": "(\n  max by (device_uuid, channel) (fireboard_channel_temperature_celsius)\n  * on (device_uuid, channel) group_left (channel_label)\n    max by (device_uuid, channel, channel_label) (fireboard_channel_info)\n){channel_label!~\"$chamber_regex\"} * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
@@ -212,7 +212,7 @@
       },
       "targets": [
         {
-          "expr": "fireboard_channel_temperature_celsius{channel_label!~\"$chamber_regex\"} * 9/5 + 32",
+          "expr": "(\n  max by (device_uuid, channel) (fireboard_channel_temperature_celsius)\n  * on (device_uuid, channel) group_left (channel_label)\n    max by (device_uuid, channel, channel_label) (fireboard_channel_info)\n){channel_label!~\"$chamber_regex\"} * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
@@ -295,5 +295,5 @@
   "time": { "from": "now-6h", "to": "now" },
   "title": "Fireboard Overview",
   "uid": "fireboard-overview",
-  "version": 6
+  "version": 7
 }
