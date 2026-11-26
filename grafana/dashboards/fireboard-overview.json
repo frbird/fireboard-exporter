@@ -32,7 +32,7 @@
       "id": 10,
       "options": {
         "colorMode": "background",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
@@ -42,53 +42,12 @@
       },
       "targets": [
         {
-          "expr": "last_over_time(fireboard_channel_temperature_celsius[2m]) * 9/5 + 32",
+          "expr": "fireboard_channel_temperature_celsius * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
       "title": "Live probe temperatures (°F)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Live chamber/pit reading ($chamber_regex).",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "fahrenheit",
-          "decimals": 0,
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "blue", "value": null },
-              { "color": "green", "value": 200 },
-              { "color": "yellow", "value": 225 },
-              { "color": "orange", "value": 250 },
-              { "color": "red", "value": 275 }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 12 },
-      "id": 11,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "reduceOptions": { "calcs": ["lastNotNull"] },
-        "textMode": "value_and_name",
-        "text": { "titleSize": 28, "valueSize": 96 }
-      },
-      "targets": [
-        {
-          "expr": "last_over_time(fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"}[2m]) * 9/5 + 32",
-          "legendFormat": "{{channel_label}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Chamber now (°F)",
       "type": "stat"
     },
     {
@@ -111,11 +70,11 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 12 },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 12 },
       "id": 4,
       "options": {
         "colorMode": "background",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "center",
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "textMode": "value_and_name",
@@ -144,7 +103,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 12 },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
       "id": 8,
       "options": {
         "colorMode": "background",
@@ -336,5 +295,5 @@
   "time": { "from": "now-6h", "to": "now" },
   "title": "Fireboard Overview",
   "uid": "fireboard-overview",
-  "version": 5
+  "version": 6
 }
