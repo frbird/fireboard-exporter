@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "FireBoard live probes, chamber average, and meat time-at-temp (stall) views. Label your pit probe Pit/Chamber/Grill/Air so chamber panels match. Every probe with a live reading (<60s) appears on Channel temperatures.",
+  "description": "FireBoard live probes, chamber average, and meat time-at-temp (stall) views. Probe temps come from the device API (not sessions)—a labeled probe can appear without an active cook session. Live panels use a 2m freshness window; histogram/heatmap/avg use the full dashboard range (historical).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -9,10 +9,10 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "One series per active probe (FireBoard only reports channels with a reading newer than ~60s).",
+      "description": "Live probes only (samples in the last 2m). FireBoard can report probe temps without an active cloud session. last_over_time drops probes that stopped reporting so the legend does not stick on stale values.",
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": false },
           "unit": "fahrenheit"
         },
         "overrides": []
@@ -22,12 +22,12 @@
       "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "min", "max"] } },
       "targets": [
         {
-          "expr": "fireboard_channel_temperature_celsius * 9/5 + 32",
+          "expr": "last_over_time((fireboard_channel_temperature_celsius * 9/5 + 32)[2m])",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
-      "title": "Channel temperatures (°F) — all active probes",
+      "title": "Channel temperatures (°F) — live probes only",
       "type": "timeseries"
     },
     {
@@ -73,12 +73,12 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "lastNotNull"] } },
       "targets": [
         {
-          "expr": "fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"} * 9/5 + 32",
+          "expr": "last_over_time((fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"} * 9/5 + 32)[2m])",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
-      "title": "Chamber / pit (°F)",
+      "title": "Chamber / pit (°F) — live",
       "type": "timeseries"
     },
     {
@@ -214,5 +214,5 @@
   "time": { "from": "now-6h", "to": "now" },
   "title": "Fireboard Overview",
   "uid": "fireboard-overview",
-  "version": 2
+  "version": 3
 }
