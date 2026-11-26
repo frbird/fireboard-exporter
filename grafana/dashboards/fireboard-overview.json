@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "Probe temperatures are only exported while a FireBoard cook session is open. With no active session, temperature panels stay empty (exporter health/API still shown).",
+  "description": "TV-friendly FireBoard cook dashboard. Probe temps only while a session is open. Giant live numbers are sized for viewing across a room.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -9,17 +9,37 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "One series per probe during an active cook session. No open session → exporter does not write temps, so this panel is empty.",
+      "description": "Current probe temps during an active session — large type for TV viewing.",
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": false },
-          "unit": "fahrenheit"
+          "unit": "fahrenheit",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 100 },
+              { "color": "yellow", "value": 150 },
+              { "color": "orange", "value": 170 },
+              { "color": "red", "value": 200 }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 10, "w": 18, "x": 0, "y": 0 },
-      "id": 1,
-      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "min", "max"] } },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "id": 10,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "wideLayout": true,
+        "text": { "titleSize": 36, "valueSize": 120 }
+      },
       "targets": [
         {
           "expr": "last_over_time(fireboard_channel_temperature_celsius[2m]) * 9/5 + 32",
@@ -27,26 +47,79 @@
           "refId": "A"
         }
       ],
-      "title": "Channel temperatures (°F) — active session probes",
-      "type": "timeseries"
+      "title": "Live probe temperatures (°F)",
+      "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Average chamber/pit temperature over the dashboard time range (only samples written during open sessions). Matches channel_label against $chamber_regex.",
+      "description": "Live chamber/pit reading ($chamber_regex).",
       "fieldConfig": {
         "defaults": {
           "unit": "fahrenheit",
-          "decimals": 1
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 200 },
+              { "color": "yellow", "value": 225 },
+              { "color": "orange", "value": 250 },
+              { "color": "red", "value": 275 }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 12 },
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "value_and_name",
+        "text": { "titleSize": 28, "valueSize": 96 }
+      },
+      "targets": [
+        {
+          "expr": "last_over_time(fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"}[2m]) * 9/5 + 32",
+          "legendFormat": "{{channel_label}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Chamber now (°F)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Average chamber temp over the dashboard time range.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "text", "value": null },
+              { "color": "blue", "value": 0 },
+              { "color": "green", "value": 200 },
+              { "color": "orange", "value": 250 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 12 },
       "id": 4,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
         "reduceOptions": { "calcs": ["lastNotNull"] },
-        "textMode": "auto"
+        "textMode": "value_and_name",
+        "text": { "titleSize": 28, "valueSize": 96 }
       },
       "targets": [
         {
@@ -55,45 +128,89 @@
           "refId": "A"
         }
       ],
-      "title": "Avg chamber (°F) — selected range",
+      "title": "Avg chamber (°F)",
       "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Chamber/pit probe during an active session ($chamber_regex).",
+      "description": "Whether an open FireBoard cook session is detected.",
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 15, "spanNulls": false },
+          "mappings": [
+            { "options": { "0": { "text": "NO SESSION", "color": "text" }, "1": { "text": "COOKING", "color": "green" } }, "type": "value" }
+          ],
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 12 },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "value",
+        "text": { "valueSize": 64 }
+      },
+      "targets": [
+        {
+          "expr": "max(fireboard_session_info) or vector(0)",
+          "legendFormat": "session",
+          "refId": "A"
+        }
+      ],
+      "title": "Session",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Probe trends for the selected range (session-only samples).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 3,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
           "unit": "fahrenheit"
         },
         "overrides": []
       },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 },
-      "id": 5,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "lastNotNull"] } },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 19 },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["lastNotNull", "mean", "min", "max"],
+          "fontSize": "14"
+        }
+      },
       "targets": [
         {
-          "expr": "last_over_time(fireboard_channel_temperature_celsius{channel_label=~\"$chamber_regex\"}[2m]) * 9/5 + 32",
+          "expr": "last_over_time(fireboard_channel_temperature_celsius[2m]) * 9/5 + 32",
           "legendFormat": "{{channel_label}}",
           "refId": "A"
         }
       ],
-      "title": "Chamber / pit (°F)",
+      "title": "Temperature trend (°F)",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "How long meat probes spent in each temperature band over the selected range (session-only samples). Stall ≈ 150–170°F.",
+      "description": "Time-at-temp for meat probes. Stall ≈ 150–170°F.",
       "fieldConfig": {
         "defaults": {
           "unit": "fahrenheit",
-          "custom": {
-            "gradientMode": "scheme"
-          }
+          "custom": { "gradientMode": "scheme" }
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 10 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 29 },
       "id": 6,
       "options": {
         "bucketCount": 40,
@@ -107,26 +224,27 @@
           "refId": "A"
         }
       ],
-      "title": "Meat time-at-temp histogram (°F)",
+      "title": "Meat time-at-temp (°F)",
       "type": "histogram"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Meat probe heatmap over time (session-only samples). A flat band at 150–170°F is the stall.",
+      "description": "Meat temp heatmap — flat band at 150–170°F is the stall.",
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "scaleDistribution": { "type": "linear" }
-          },
+          "custom": { "scaleDistribution": { "type": "linear" } },
           "unit": "fahrenheit"
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 10 },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 29 },
       "id": 7,
       "options": {
         "calculate": true,
-        "calculation": { "xBuckets": { "mode": "count", "value": "60" }, "yBuckets": { "mode": "count", "value": "40" } },
+        "calculation": {
+          "xBuckets": { "mode": "count", "value": "60" },
+          "yBuckets": { "mode": "count", "value": "40" }
+        },
         "cellGap": 1,
         "color": { "scheme": "Spectral", "steps": 64, "mode": "scheme", "fill": "dark-orange" },
         "legend": { "show": true },
@@ -140,34 +258,8 @@
           "refId": "A"
         }
       ],
-      "title": "Meat temp heatmap (stall view)",
+      "title": "Meat temp heatmap (stall)",
       "type": "heatmap"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Open FireBoard cook sessions currently known to the exporter.",
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            { "options": { "0": { "text": "none", "color": "text" }, "1": { "text": "active", "color": "green" } }, "type": "value" }
-          ],
-          "max": 1,
-          "min": 0
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 19 },
-      "id": 8,
-      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "targets": [
-        {
-          "expr": "max(fireboard_session_info) or vector(0)",
-          "legendFormat": "session",
-          "refId": "A"
-        }
-      ],
-      "title": "Active cook session",
-      "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
@@ -179,27 +271,30 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 19 },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 38 },
       "id": 2,
-      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "text": { "valueSize": 32 }
+      },
       "targets": [
         {
           "expr": "fireboard_up",
           "refId": "A"
         }
       ],
-      "title": "Exporter poll status",
+      "title": "Exporter",
       "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        },
+        "defaults": { "unit": "reqps" },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 19 },
+      "gridPos": { "h": 4, "w": 18, "x": 6, "y": 38 },
       "id": 3,
       "targets": [
         {
@@ -212,8 +307,9 @@
       "type": "timeseries"
     }
   ],
+  "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["fireboard", "bbq", "stall"],
+  "tags": ["fireboard", "bbq", "stall", "tv"],
   "templating": {
     "list": [
       {
@@ -228,7 +324,7 @@
           "text": "(?i)pit|chamber|grill|air|cooker|ambient",
           "value": "(?i)pit|chamber|grill|air|cooker|ambient"
         },
-        "description": "Regex matched against channel_label for chamber/pit panels. Meat histogram/heatmap use the inverse.",
+        "description": "Regex for chamber/pit probe labels. Meat panels use the inverse.",
         "label": "Chamber label regex",
         "name": "chamber_regex",
         "query": "(?i)pit|chamber|grill|air|cooker|ambient",
@@ -240,5 +336,5 @@
   "time": { "from": "now-6h", "to": "now" },
   "title": "Fireboard Overview",
   "uid": "fireboard-overview",
-  "version": 4
+  "version": 5
 }
